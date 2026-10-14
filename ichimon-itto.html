@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一問一答 - 社会</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    background: #f0f4f8;
+    margin: 0;
+    padding: 20px;
+    color: #2d3748;
+  }
+  .container { max-width: 760px; margin: 0 auto; }
+  .back-link {
+    display: inline-block; color: #4299e1; text-decoration: none;
+    font-size: 0.9rem; font-weight: bold; margin-bottom: 10px;
+  }
+  .back-link:hover { text-decoration: underline; }
+  h1 { text-align: center; color: #276749; font-size: 1.6rem; margin: 6px 0; }
+  .subtitle { text-align: center; color: #718096; font-size: 0.85rem; margin-bottom: 20px; }
+
+  /* 章選択 */
+  .chapter-screen { text-align: center; }
+  .chapter-screen h2 { color: #276749; font-size: 1.25rem; margin-bottom: 8px; }
+  .chapter-screen p { color: #718096; font-size: 0.9rem; margin-bottom: 28px; }
+  .chapter-buttons {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 520px) { .chapter-buttons { grid-template-columns: 1fr; } }
+  .chapter-btn {
+    background: #f7fafc; border: 3px solid #e2e8f0; border-radius: 16px;
+    padding: 32px 16px; cursor: pointer; transition: all 0.15s;
+    font-family: inherit; color: inherit; position: relative;
+  }
+  .chapter-btn:hover:not(:disabled) { border-color: #4299e1; background: #ebf8ff; transform: translateY(-3px); }
+  .chapter-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .chapter-btn:disabled:hover { border-color: #e2e8f0; background: #f7fafc; transform: none; }
+  .chapter-btn .icon { font-size: 2.4rem; display: block; margin-bottom: 12px; }
+  .chapter-btn .title { font-size: 1.1rem; font-weight: bold; color: #2b6cb0; display: block; margin-bottom: 6px; }
+  .chapter-btn .desc { font-size: 0.8rem; color: #718096; display: block; line-height: 1.6; }
+  .chapter-btn.all { grid-column: 1 / -1; border-color: #f6ad55; }
+  .chapter-btn.all .title { color: #c05621; }
+  .chapter-btn.all:hover:not(:disabled) { border-color: #ed8936; background: #fffaf0; }
+  .chapter-btn.bookmark-mode { grid-column: 1 / -1; border-color: #ecc94b; }
+  .chapter-btn.bookmark-mode .title { color: #b7791f; }
+  .chapter-btn.bookmark-mode:hover:not(:disabled) { border-color: #d69e2e; background: #fffff0; }
+  .bookmark-count-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #ecc94b;
+    color: #744210;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+
+  /* クイズ */
+  .progress-bar { background: #e2e8f0; border-radius: 999px; height: 10px; overflow: hidden; margin-bottom: 6px; }
+  .progress-fill { background: linear-gradient(90deg, #4299e1, #2b6cb0); height: 100%; width: 0%; transition: width 0.4s ease; }
+  .progress-text { text-align: right; font-size: 0.85rem; color: #718096; margin-bottom: 20px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); padding: 32px 24px; }
+
+  .q-header {
+    display: flex; justify-content: center; align-items: center;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
+    position: relative;
+  }
+  .q-tag {
+    display: inline-block; font-size: 0.85rem; font-weight: bold;
+    padding: 5px 14px; border-radius: 999px;
+    background: #2b6cb0; color: #fff;
+  }
+
+  /* ブックマークボタン */
+  .bookmark-btn {
+    background: none;
+    border: 2px solid #e2e8f0;
+    border-radius: 999px;
+    width: 42px;
+    height: 42px;
+    cursor: pointer;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    color: #cbd5e0;
+    padding: 0;
+    line-height: 1;
+  }
+  .bookmark-btn:hover {
+    border-color: #ecc94b;
+    background: #fffff0;
+    transform: scale(1.05);
+  }
+  .bookmark-btn.active {
+    color: #ecc94b;
+    border-color: #ecc94b;
+    background: #fffff0;
+  }
+  .bookmark-btn.absolute {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+
+  .question { font-size: 1.15rem; line-height: 2; text-align: center; margin-bottom: 12px; min-height: 40px; }
+
+  /* すべて選べの注記 */
+  .select-all-note {
+    text-align: center;
+    font-size: 0.88rem;
+    font-weight: bold;
+    color: #c05621;
+    background: #fffaf0;
+    border: 1px dashed #f6ad55;
+    border-radius: 8px;
+    padding: 6px 14px;
+    margin: 0 auto 24px;
+    width: fit-content;
+  }
+
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 520px) { .choices { grid-template-columns: 1fr; } }
+  .choice {
+    background: #f7fafc; border: 2px solid #e2e8f0; border-radius: 12px;
+    padding: 20px 14px; font-size: 1rem; cursor: pointer; transition: all 0.15s;
+    text-align: center; font-family: inherit; color: inherit; font-weight: 600;
+    min-height: 64px; display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .choice:hover:not(:disabled) { border-color: #4299e1; background: #ebf8ff; transform: translateY(-2px); }
+  .choice:disabled { cursor: default; }
+  .choice.correct { background: #f0fff4; border-color: #48bb78; color: #276749; }
+  .choice.wrong { background: #fff5f5; border-color: #fc8181; color: #c53030; }
+  .choice.selected {
+    background: #4299e1; color: #fff; border-color: #2b6cb0;
+    box-shadow: 0 0 0 3px rgba(66,153,225,0.35);
+  }
+  .choice.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .confirm-btn-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  .confirm-btn {
+    padding: 14px 48px;
+    font-size: 1.05rem;
+    font-weight: bold;
+    border-radius: 12px;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    background: #48bb78;
+    color: #fff;
+    transition: all 0.15s;
+  }
+  .confirm-btn:hover:not(:disabled) { background: #38a169; }
+  .confirm-btn:disabled { background: #cbd5e0; cursor: not-allowed; }
+
+  .feedback {
+    margin-top: 20px; padding: 14px 16px; border-radius: 10px;
+    font-size: 0.95rem; line-height: 1.7; text-align: center; display: none;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok { background: #f0fff4; color: #276749; border-left: 4px solid #48bb78; }
+  .feedback.ng { background: #fff5f5; color: #c53030; border-left: 4px solid #fc8181; }
+  .result { text-align: center; display: none; }
+  .result.show { display: block; }
+  .result h2 { color: #2b6cb0; font-size: 1.5rem; }
+  .score-big { font-size: 3rem; font-weight: bold; color: #2b6cb0; margin: 16px 0; }
+  .score-big small { font-size: 1.2rem; color: #718096; }
+  .comment { color: #4a5568; margin-bottom: 24px; }
+  .result-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    padding: 14px 28px; font-size: 1rem; border-radius: 12px;
+    border: none; font-family: inherit; cursor: pointer; font-weight: bold;
+    transition: all 0.15s;
+  }
+  .btn.primary { background: #4299e1; color: #fff; }
+  .btn.primary:hover { background: #3182ce; }
+  .btn.secondary { background: #e2e8f0; color: #4a5568; border: 2px solid #cbd5e0; }
+  .btn.secondary:hover { background: #cbd5e0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="back-link" href="social-chukan.html">← 戻る</a>
+  <h1>一問一答</h1>
+  <p class="subtitle">社会 2学期中間テスト対策</p>
+
+  <!-- 章選択 -->
+  <div class="card chapter-screen" id="chapterScreen">
+    <h2>範囲を選んでください</h2>
+    <p>4択形式で出題されます</p>
+    <div class="chapter-buttons">
+      <button class="chapter-btn" onclick="startQuiz('ch1')">
+        <span class="icon">📘</span>
+        <span class="title">第1章</span>
+        <span class="desc">現代社会・文化・家族</span>
+      </button>
+      <button class="chapter-btn" onclick="startQuiz('ch2')">
+        <span class="icon">📗</span>
+        <span class="title">第2章</span>
+        <span class="desc">政治・憲法・人権</span>
+      </button>
+      <button class="chapter-btn all" onclick="startQuiz('all')">
+        <span class="icon">📚</span>
+        <span class="title">全範囲（第1章 + 第2章）</span>
+        <span class="desc">すべての問題からランダム出題</span>
+      </button>
+      <button class="chapter-btn bookmark-mode" id="bookmarkModeBtn" onclick="startQuiz('bookmark')">
+        <span class="bookmark-count-badge" id="bookmarkCountBadge">0</span>
+        <span class="icon">⭐</span>
+        <span class="title">ブックマークした問題</span>
+        <span class="desc" id="bookmarkDesc">ブックマークした問題だけを出題</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- クイズ画面 -->
+  <div id="quizArea" style="display:none;">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-text" id="progressText"></div>
+
+    <div class="card" id="quizCard">
+      <div class="q-header">
+        <span class="q-tag" id="qTag"></span>
+        <button class="bookmark-btn absolute" id="bookmarkBtn" onclick="toggleBookmarkCurrent()" title="ブックマーク">★</button>
+      </div>
+      <div class="question" id="question"></div>
+      <div class="select-all-note" id="selectAllNote" style="display:none;">当てはまるものをすべて選べ</div>
+      <div class="choices" id="choices"></div>
+      <div class="confirm-btn-wrap" id="confirmWrap" style="display:none;">
+        <button class="confirm-btn" id="confirmBtn" onclick="confirmMultiAnswer()">決定</button>
+      </div>
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <div class="card result" id="resultCard">
+      <h2>クイズ終了！</h2>
+      <div class="score-big" id="scoreBig"></div>
+      <p class="comment" id="comment"></p>
+      <div class="result-buttons">
+        <button class="btn primary" onclick="restart()">もう一度挑戦する</button>
+        <button class="btn secondary" onclick="backToChapter()">範囲選択に戻る</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 問題データ
+// ============================================================
+const chapter1 = [
+  { q: "子供が少なくなり、高齢者の割合が増えることをなんというか", a: "少子高齢化" },
+  { q: "少子高齢化が進んだ社会をなんというか", a: "少子高齢化社会" },
+  { q: "1950年代の人口ピラミッドは何型か", a: "ピラミッド型" },
+  { q: "2020年代の人口ピラミッドは何型か", a: "つりがね型" },
+  { q: "2065年代の人口ピラミッドは何型か", a: "つぼ型" },
+  { q: "医療の発達で伸びたものはなにか", a: "平均寿命" },
+  { q: "一人の女性が一生のうちに生む子供の数をなんというか", a: "合計特殊出生率" },
+  { q: "インターネットなどの通信技術一体をなんというか", a: "情報通信技術（ICT）" },
+  { q: "大量のデジタル情報が蓄積されたものをなんというか", a: "ビッグデータ" },
+  { q: "情報通信技術により社会の中で大きな働きを持つようになることをなんというか", a: "情報化" },
+  { q: "ビッグデータなどの情報を処理して活用するための機械、技術の代表はなにか", a: "人工知能（AI）" },
+  { q: "情報を正しく判断して利用・活用する力をなんというか", a: "情報リテラシー" },
+  { q: "情報を掴ん考え方、態度をなんというか", a: "情報モラル" },
+  { q: "世界が一体化してよりいく傾向のことをなんというか", a: "グローバル化" },
+  { q: "得意な分野の生産を引き受けてその商品を輸出し、他国が得意な分野の生産はまかせて商品を輸入することでなりたつどんな分業が加速しているか", a: "国際的な分業" },
+  { q: "互いの個性、地域の文化、宗教、国に特徴を大切にする社会をなんというか", a: "多文化共生社会" },
+  { q: "各国が協力することをなんというか", a: "国際協力" },
+  { q: "20世紀、工業化に何社会となり、地球環境問題が発生したか", a: "大量消費社会" },
+  { q: "高齢者の割合が増えると働く世代の負担はどうなるか", a: "増える" },
+  { q: "機器を使う能力差によって生まれる、得られる情報の格差をなんというか", a: "デジタル・ディバイド" },
+  { q: "持続可能な開発目標の略称はなにか", a: "SDGs" },
+  { q: "イスラム教には何肉を食べないと教えがあるか", a: "豚肉" },
+  { q: "人々が社会の一員として、自分の意見を表明し、地域の活動や意思決定に関わり、責任を分かち合うことをなんというか", a: "社会参画" },
+  { q: "衣食住を始め、科学、技術、学問、芸術、道徳、宗教、政治、スポーツなどの人間が作り上げた生活の仕方や社会の仕組み、物事に対する感じ方などのすべてをなんというか", a: "文化" },
+  { q: "技術の革新で生活を豊かにしてきたのはなにか", a: "科学" },
+  { q: "絵画や音楽など、人生を豊かにするのはなにか", a: "芸術" },
+  { q: "悩みや不安に、安心を与えるものはなにか", a: "宗教" },
+  { q: "お正月や節分などの毎年同じ時期に行われる行事をなんというか", a: "年中行事" },
+  { q: "長い歴史の中で受け継がれてきた文化をなんというか", a: "伝統文化" },
+  { q: "平安時代の感じから仮名文字を作った文化をなんというか", a: "国風文化" },
+  { q: "人間は家族などの何集団で生きるか", a: "社会集団" },
+  { q: "人間は社会集団で生きるどんな存在か", a: "社会的存在" },
+  { q: "夫婦と未婚の子供、あるいは夫婦だけ、一人親の子供からなる家族をなんというか", a: "核家族" },
+  { q: "日本国憲法は家族生活の根本として、個人の尊厳と何を定めているか", a: "両性の本質的平等" },
+  { q: "日本国憲法は政治のあり方の根本として何を強調しているか", a: "個人の尊重（尊厳）" },
+  { q: "様々な場面で問題や争いが起きる可能性があり、こうした状態をなんというか", a: "対立" },
+  { q: "全員の賛成によってそれを決まりとして入れることをなんというか", a: "合意" },
+  { q: "より多くの賛成した意見を採用する方法法をなんというか", a: "多数決" },
+  { q: "費用や労力に無駄がなく、最大の利益を得られるようにすることをなんというか", a: "効率" },
+  { q: "対等で、差別無く、立場が変わっても受けいられるものをなんというか", a: "公正" },
+  { q: "互いの権利や利益を尊重した決まりを作ることをなんというか", a: "契約" },
+  { q: "私たちにはルールや決まりを守る何があるか", a: "責任" },
+  { q: "決まりを作る時、互いの何と何を考慮する必要があるか", a: "権利、義務" }
+];
+
+const chapter2 = [
+  { q: "決まりを定め、命令を強制する力をなんというか", a: "政治権力" },
+  { q: "かつて行われていた、少数の意見や利益が優先される政治をなんというか", a: "専制政治" },
+  { q: "みんなのことはみんなで決めるという考え方を何というか", a: "民主主義" },
+  { q: "民主主義に基づく政治をなんというか", a: "民主政治" },
+  { q: "国民が政治のあり方を最終的に決めることをなんというか", a: "国民主権" },
+  { q: "多数決を行う際、結論を出す前に少数意見の何をする必要があるか", a: "尊重" },
+  { q: "憲法に基づいて政治を行い、権力の濫用を防ごうとする考え方を何というか", a: "立憲主義" },
+  { q: "憲法は国のなんと呼ばれるか", a: "最高法規" },
+  { q: "立憲主義に基づいて、人権の保障や権力分立を定める憲法をなんというか", a: "立憲主義の憲法" },
+  { q: "1人1人が尊厳ある人間として等しく配慮されることをなんというか", a: "個人の尊重" },
+  { q: "人間らしく生きるために保証されている権利をなんというか", a: "基本的人権" },
+  { q: "私たちの自由はあらかじめ定められた何に基づいているか", a: "法" },
+  { q: "権力を持つ人も又、法に従わなければならないという考え方をなんというか", a: "法の支配" },
+  { q: "権力を分割し、互いに抑制、均衡を図る工夫をなんというか", a: "権力分立" },
+  { q: "『法の精神』（権力分立）は誰の考え方か", a: "モンテスキュー" },
+  { q: "「人民の、人民による、人民のための政治」と説いたのは誰か", a: "リンカーン" },
+  { q: "1889年に制定された憲法はなにか", a: "大日本帝国憲法" },
+  { q: "大日本帝国憲法は何月何日に発布されたか", a: "2月11日" },
+  { q: "大日本帝国憲法の主権は誰にあったか", a: "天皇" },
+  { q: "大日本帝国の国民の権利はなんの範囲内で認められていたか", a: "法律" },
+  { q: "日本国憲法のように、通常の法律よりも改正の手続きが難しい憲法をなんというか", a: "硬性憲法" },
+  { q: "大日本帝国の性格である、国民主権でなく君主の意志によって制定され、君主から臣民肉だし与えられた形態の憲法をなんというか", a: "欽定憲法" },
+  { q: "日本国憲法の性格である、国民主権の思想に基づいて、国民自身又は国民が選んだ代表者が制定した憲法をなんというか", a: "民定憲法" },
+  { q: "大日本帝国憲法では誰に統帥権が持たされていたか", a: "天皇" },
+  { q: "日本国憲法は1946年のいつ公布されたか", a: "11月3日" },
+  { q: "日本国憲法は1947年のいつ施行されたか", a: "5月3日" },
+  { q: "日本国憲法の基本原則をすべて選べ", a: "国民主権、基本的人権の尊重、平和主義" },
+  { q: "国民が国会を通じて政治のあり方を決めることをなんというか", a: "議会制民主主義" },
+  { q: "憲法改正原案が国会に提出されたとき、衆議院、参議院それぞれ何以上の賛成が必要か", a: "2/3" },
+  { q: "何が出されると国民投票になるか", a: "憲法改正の発議" },
+  { q: "憲法改正の発議により、何が行われるか", a: "国民投票" },
+  { q: "憲法改正では国民投票の有効投票総数のどれほどの賛成がいるか", a: "過半数" },
+  { q: "憲法改正はだれが国民の名において公布するか", a: "天皇" },
+  { q: "天皇は日本国民のなにか", a: "象徴" },
+  { q: "天皇は国政に関する何を持たないと定められているか", a: "権能" },
+  { q: "天皇が行う仕事をなんというか", a: "国事行為" },
+  { q: "1775年にアメリカで宣言されたものはなにか", a: "アメリカ独立宣言" },
+  { q: "1789年にフランスで宣言されたものはなにか", a: "フランス人権宣言" },
+  { q: "アメリカ独立宣言やフランス人権宣言で確立した権利はなにか", a: "自由権" },
+  { q: "1919年にドイツで制定された憲法はなにか", a: "ワイマール憲法" },
+  { q: "ワイマール憲法で確立した国に対して人間らしい生活を要求する権利はなにか", a: "社会権" },
+  { q: "1948年に人権を国際的に保障した宣言はなにか", a: "世界人権宣言" },
+  { q: "子どもの人権を守るために作られた条約は何か", a: "子ども（児童）の権利条約" },
+  { q: "表現の自由はなんの自由の分類か", a: "精神の自由" },
+  { q: "裁判官の何がなければ逮捕されないか", a: "令状" },
+  { q: "正当な理由無く捕らえられたり、拘束されたりしないことを保証した自由はなにか", a: "生命・身体の自由" },
+  { q: "経済活動の自由に当たるものをすべて選べ", a: "移転・住居の自由、職業選択の自由" },
+  { q: "自分の意志で契約を結ぶことができる原則をなんというか", a: "契約自由の原則" },
+  { q: "自分の意思で財産を所有することができる制度をなんというか", a: "私有財産制度" },
+  { q: "『統治二論』を説いたのは誰か", a: "ロック" },
+  { q: "『社会契約論』を説いたのは誰か", a: "ルソー" },
+  { q: "平等な扱いを受ける権利を何というか", a: "平等権" },
+  { q: "同和問題ともいう、歴史的過程で形作られた身分制度により差別を受ける問題をなんというか", a: "部落差別" },
+  { q: "1922年創設された差別の撤回を求めるものはなにか", a: "全国水平社" },
+  { q: "北海道の先住民族をなんというか", a: "アイヌ民族" },
+  { q: "2019年にアイヌ民族が先住民族だと明記されたものはなにか", a: "アイヌ施策推進法" },
+  { q: "女子の差別をなくす条約をなんというか", a: "女子差別撤廃条約" },
+  { q: "女子の差別撤廃を目的とし1985年に出された職場における男女の均等な機会と確保を目的とした法律はなにか", a: "男女雇用機会均等法" },
+  { q: "1999年に出された、男女が対等な構成員として活動できる社会を総合的かつ計画的に進めるための法律はなにか", a: "男女共同参画社会基本法" },
+  { q: "障害者の差別をなくす目的の法律はなにか", a: "障害者差別解消法" },
+  { q: "障害のある人にとっての障壁をなくしていくことを何というか", a: "バリアフリー化" },
+  { q: "誰にとっても使いやすいデザインをなんというか", a: "ユニバーサルデザイン" },
+  { q: "障害のある人もない人も、高齢者もそうでない人もお互い特別視せず、地域社会の中で「普通の生活」をともに送る考え方をなんというか", a: "ノーマライゼーション" },
+  { q: "健康で文化的な最低限度の生活を営む権利をなんというか", a: "生存権" },
+  { q: "私たちが学校教育を受けるためのどんな権利を持っているか", a: "教育を受ける権利" },
+  { q: "日本国憲法が、人々に働く機会をあたえることを国の責務としているものをなんというか", a: "勤労の権利" },
+  { q: "労働の基準が定められている法はなにか", a: "労働基準法" },
+  { q: "労働者が団結して労働組合を作れる権利をなんというか", a: "団結権" },
+  { q: "使用者と対等な立場で賃金などの労働条件を作れる権利をなんというか", a: "団体交渉権" },
+  { q: "要求を実現するためにストライキなどの団体行動ができる権利をなんというか", a: "団体行動権（争議権）" },
+  { q: "団結権・団体交渉権・団体行動権をまとめてなんというか", a: "労働基本権（労働三権）" },
+  { q: "日本国憲法は選挙に参加するためのどんな権利保障しているか", a: "参政権" },
+  { q: "国会議員や、地方議会議員を選ぶための権利をなんというか", a: "選挙権" },
+  { q: "選挙権は満何歳以上の国民に認められているか", a: "18" },
+  { q: "選挙に立候補するための権利をなんというか", a: "被選挙権" },
+  { q: "国民が自ら重要なことを決定する制度をなんというか", a: "国民投票制度" },
+  { q: "国や地方公共団体に対し、法律や条例の制定などについて希望を述べれる権利をなんというか", a: "請願権" },
+  { q: "国に対して人権が侵害されたときのために救済を求めれる権利をなんというか", a: "請求権" },
+  { q: "請求権のうちの一つである裁判を受けれる権利をなんというか", a: "裁判を受ける権利" },
+  { q: "公務員の不法行為によって損害を受けた人が、国や地方公共団体に対して損害賠償を求める権利をなんというか", a: "国家賠償請求権" },
+  { q: "刑事裁判で無罪になった人が、刑事施設などに拘束されていた間の保障を国に求めれる権利をなんというか", a: "刑事補償請求権" },
+  { q: "国や地方公共団体がどのような活動をしているか知ることができる権利をなんというか", a: "知る権利" },
+  { q: "知る権利に基づいて作られた情報を公開する制度をなんというか", a: "情報公開制度" },
+  { q: "新聞やテレビなどのメディアをなんというか", a: "マスメディア" },
+  { q: "私たちの私生活が他人から干渉されないという権利をなんというか", a: "プライバシーの権利" },
+  { q: "自己の情報を自分で管理する権利をなんというか", a: "自己情報コントロール権" },
+  { q: "私たちの個人情報が勝手に使われたり、漏れたりしないように定められたルールをなんというか", a: "個人情報保護制度" },
+  { q: "健康で文化的な生活を営むために、自然の恵み豊かな環境が不可欠であるということを主張した権利をなんというか", a: "環境権" },
+  { q: "環境権のうち、住居への日照を確保する権利をなんというか", a: "日照権" },
+  { q: "建物やその場所から見られる景色を妨害されないという権利をなんというか", a: "眺望権" },
+  { q: "私たちがそれぞれ自分の考え方に従って決定する自由を保証されるべきという権利をなんというか", a: "自己決定権" },
+  { q: "治療などの医療行為を自分の責任において選択するという考えをなんというか", a: "インフォームド・コンセント" },
+  { q: "延命治療を拒否し、人間としての尊厳を保ちながら死を迎えることをなんというか", a: "尊厳死" }
+];
+
+// ============================================================
+// 全問題にユニークIDを付与
+// ============================================================
+chapter1.forEach((item, i) => { item.id = "c1-" + i; item.chapter = "ch1"; });
+chapter2.forEach((item, i) => { item.id = "c2-" + i; item.chapter = "ch2"; });
+
+const allItems = [...chapter1, ...chapter2];
+const questionMap = {};
+allItems.forEach(item => questionMap[item.id] = item);
+
+// ============================================================
+// 選択肢のダミープール
+// ============================================================
+function buildAllAnswerPool() {
+  const pool = new Set();
+  allItems.forEach(item => {
+    if (Array.isArray(item.a)) {
+      item.a.forEach(x => pool.add(x));
+    } else {
+      pool.add(item.a);
+    }
+  });
+  return Array.from(pool);
+}
+const allAnswerPool = buildAllAnswerPool();
+
+// ============================================================
+// ブックマーク管理
+// ============================================================
+const BOOKMARK_KEY = "ichimon_bookmarks";
+
+function loadBookmarks() {
+  try {
+    const raw = localStorage.getItem(BOOKMARK_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+
+function saveBookmarks(ids) {
+  try { localStorage.setItem(BOOKMARK_KEY, JSON.stringify(ids)); } catch (e) {}
+}
+
+let bookmarkedIds = loadBookmarks();
+
+function isBookmarked(id) { return bookmarkedIds.includes(id); }
+
+function toggleBookmark(id) {
+  if (isBookmarked(id)) {
+    bookmarkedIds = bookmarkedIds.filter(x => x !== id);
+  } else {
+    bookmarkedIds.push(id);
+  }
+  saveBookmarks(bookmarkedIds);
+  updateBookmarkUI();
+}
+
+function updateBookmarkUI() {
+  const count = bookmarkedIds.length;
+  const badge = document.getElementById("bookmarkCountBadge");
+  if (badge) badge.textContent = count;
+
+  const bmBtn = document.getElementById("bookmarkModeBtn");
+  const bmDesc = document.getElementById("bookmarkDesc");
+  if (bmBtn) {
+    if (count === 0) {
+      bmBtn.disabled = true;
+      if (bmDesc) bmDesc.textContent = "まだブックマークがありません";
+    } else {
+      bmBtn.disabled = false;
+      if (bmDesc) bmDesc.textContent = count + " 問を出題できます";
+    }
+  }
+
+  const quizBtn = document.getElementById("bookmarkBtn");
+  if (quizBtn && quizOrder.length > 0 && currentIndex < quizOrder.length) {
+    const q = quizOrder[currentIndex];
+    if (isBookmarked(q.id)) quizBtn.classList.add("active");
+    else quizBtn.classList.remove("active");
+  }
+}
+
+function toggleBookmarkCurrent() {
+  if (quizOrder.length === 0 || currentIndex >= quizOrder.length) return;
+  toggleBookmark(quizOrder[currentIndex].id);
+}
+
+// ============================================================
+// 状態
+// ============================================================
+let currentMode = null;
+let quizOrder = [];
+let currentIndex = 0;
+let score = 0;
+let answered = false;
+let autoNextTimer = null;
+let multiSelected = [];
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function normalizeAnswer(a) {
+  return Array.isArray(a) ? a : [a];
+}
+
+function buildQuizList(source) {
+  return source.map(item => {
+    const arr = normalizeAnswer(item.a);
+    return {
+      id: item.id,
+      q: item.q,
+      correctArr: arr,
+      correctText: arr.join("・"),
+      isMulti: arr.length > 1,
+      chapter: item.chapter
+    };
+  });
+}
+
+function makeSingleChoices(qItem) {
+  const correctText = qItem.correctText;
+  const pool = new Set();
+  allAnswerPool.forEach(a => {
+    if (a !== correctText) pool.add(a);
+  });
+  const candidates = Array.from(pool);
+  const dummies = [];
+  const used = new Set();
+  while (dummies.length < 3 && candidates.length > 0) {
+    const i = Math.floor(Math.random() * candidates.length);
+    const c = candidates.splice(i, 1)[0];
+    if (!used.has(c)) { dummies.push(c); used.add(c); }
+  }
+  return shuffle([correctText, ...dummies]);
+}
+
+function makeMultiChoices(qItem) {
+  const correctArr = qItem.correctArr;
+  const dummyCount = correctArr.length;
+  const pool = new Set();
+  allAnswerPool.forEach(a => {
+    if (!correctArr.includes(a)) pool.add(a);
+  });
+  const candidates = Array.from(pool);
+  const dummies = [];
+  const used = new Set();
+  while (dummies.length < dummyCount && candidates.length > 0) {
+    const i = Math.floor(Math.random() * candidates.length);
+    const c = candidates.splice(i, 1)[0];
+    if (!used.has(c)) { dummies.push(c); used.add(c); }
+  }
+  return shuffle([...correctArr, ...dummies]);
+}
+
+// ============================================================
+// 画面遷移
+// ============================================================
+function backToChapter() {
+  if (autoNextTimer) { clearTimeout(autoNextTimer); autoNextTimer = null; }
+  document.getElementById("chapterScreen").style.display = "block";
+  document.getElementById("quizArea").style.display = "none";
+  document.getElementById("resultCard").classList.remove("show");
+  document.getElementById("quizCard").style.display = "block";
+  currentMode = null;
+  updateBookmarkUI();
+}
+
+function startQuiz(mode) {
+  if (autoNextTimer) { clearTimeout(autoNextTimer); autoNextTimer = null; }
+  currentMode = mode;
+
+  let source;
+  if (mode === "ch1") source = chapter1;
+  else if (mode === "ch2") source = chapter2;
+  else if (mode === "bookmark") {
+    source = bookmarkedIds.map(id => questionMap[id]).filter(Boolean);
+  } else {
+    source = allItems;
+  }
+
+  if (!source || source.length === 0) {
+    alert("出題できる問題がありません。");
+    return;
+  }
+
+  quizOrder = shuffle(buildQuizList(source));
+  currentIndex = 0;
+  score = 0;
+
+  document.getElementById("chapterScreen").style.display = "none";
+  document.getElementById("quizArea").style.display = "block";
+  document.getElementById("resultCard").classList.remove("show");
+  document.getElementById("quizCard").style.display = "block";
+
+  renderQuestion();
+}
+
+// ============================================================
+// 問題表示
+// ============================================================
+function renderQuestion() {
+  answered = false;
+  multiSelected = [];
+  const q = quizOrder[currentIndex];
+
+  const pct = (currentIndex / quizOrder.length) * 100;
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressText").textContent =
+    (currentIndex + 1) + " / " + quizOrder.length + " 問";
+
+  const tag = document.getElementById("qTag");
+  if (q.chapter === "ch1") tag.textContent = "第1章";
+  else if (q.chapter === "ch2") tag.textContent = "第2章";
+  else tag.textContent = "問題";
+
+  document.getElementById("question").textContent = q.q;
+
+  const noteEl = document.getElementById("selectAllNote");
+  if (q.isMulti) noteEl.style.display = "block";
+  else noteEl.style.display = "none";
+
+  const choicesEl = document.getElementById("choices");
+  choicesEl.innerHTML = "";
+  const choices = q.isMulti ? makeMultiChoices(q) : makeSingleChoices(q);
+  choices.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.textContent = c;
+    if (q.isMulti) {
+      btn.onclick = () => toggleMultiChoice(btn, c);
+    } else {
+      btn.onclick = () => selectSingleAnswer(btn, c, q);
+    }
+    choicesEl.appendChild(btn);
+  });
+
+  const confirmWrap = document.getElementById("confirmWrap");
+  if (q.isMulti) {
+    confirmWrap.style.display = "flex";
+    document.getElementById("confirmBtn").disabled = true;
+  } else {
+    confirmWrap.style.display = "none";
+  }
+
+  const fb = document.getElementById("feedback");
+  fb.className = "feedback";
+  fb.textContent = "";
+
+  updateBookmarkUI();
+}
+
+function selectSingleAnswer(btn, choice, q) {
+  if (answered) return;
+  answered = true;
+
+  const buttons = document.querySelectorAll(".choice");
+  buttons.forEach(b => {
+    b.disabled = true;
+    if (b.textContent === q.correctText) b.classList.add("correct");
+  });
+
+  const fb = document.getElementById("feedback");
+  if (choice === q.correctText) {
+    score++;
+    fb.className = "feedback ok show";
+    fb.textContent = "正解！ " + q.correctText;
+  } else {
+    btn.classList.add("wrong");
+    fb.className = "feedback ng show";
+    fb.textContent = "残念… 正解は「" + q.correctText + "」です。";
+  }
+
+  const delay = (choice === q.correctText) ? 900 : 1600;
+  autoNextTimer = setTimeout(nextQuestion, delay);
+}
+
+function toggleMultiChoice(btn, text) {
+  if (answered) return;
+  const idx = multiSelected.indexOf(text);
+  if (idx >= 0) {
+    multiSelected.splice(idx, 1);
+    btn.classList.remove("selected");
+  } else {
+    multiSelected.push(text);
+    btn.classList.add("selected");
+  }
+  document.getElementById("confirmBtn").disabled = multiSelected.length === 0;
+}
+
+function confirmMultiAnswer() {
+  if (answered) return;
+  const q = quizOrder[currentIndex];
+  if (!q.isMulti) return;
+  if (multiSelected.length === 0) return;
+
+  answered = true;
+
+  const correctSet = new Set(q.correctArr);
+  const selectedSet = new Set(multiSelected);
+
+  let isCorrect = correctSet.size === selectedSet.size;
+  if (isCorrect) {
+    for (const c of correctSet) {
+      if (!selectedSet.has(c)) { isCorrect = false; break; }
+    }
+  }
+
+  const buttons = document.querySelectorAll(".choice");
+  buttons.forEach(b => {
+    b.disabled = true;
+    b.classList.remove("selected");
+    if (correctSet.has(b.textContent)) {
+      b.classList.add("correct");
+    } else if (selectedSet.has(b.textContent)) {
+      b.classList.add("wrong");
+    }
+  });
+
+  const fb = document.getElementById("feedback");
+  if (isCorrect) {
+    score++;
+    fb.className = "feedback ok show";
+    fb.textContent = "正解！ " + q.correctText;
+  } else {
+    fb.className = "feedback ng show";
+    fb.textContent = "残念… 正解は「" + q.correctText + "」です。";
+  }
+
+  document.getElementById("confirmWrap").style.display = "none";
+
+  const delay = isCorrect ? 1200 : 2000;
+  autoNextTimer = setTimeout(nextQuestion, delay);
+}
+
+function nextQuestion() {
+  if (autoNextTimer) { clearTimeout(autoNextTimer); autoNextTimer = null; }
+  currentIndex++;
+  if (currentIndex >= quizOrder.length) {
+    showResult();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showResult() {
+  document.getElementById("progressFill").style.width = "100%";
+  document.getElementById("progressText").textContent =
+    quizOrder.length + " / " + quizOrder.length + " 問";
+  document.getElementById("quizCard").style.display = "none";
+
+  const result = document.getElementById("resultCard");
+  result.classList.add("show");
+
+  document.getElementById("scoreBig").innerHTML =
+    score + " <small>/ " + quizOrder.length + " 問正解</small>";
+
+  const rate = score / quizOrder.length;
+  let comment = "";
+  if (rate === 1) comment = "全問正解！素晴らしいです。";
+  else if (rate >= 0.8) comment = "よくできました！理解が深まっています。";
+  else if (rate >= 0.6) comment = "まずまずです。間違えた問題を見直しましょう。";
+  else if (rate >= 0.4) comment = "もう少し！繰り返し挑戦して覚えましょう。";
+  else comment = "基礎からしっかり復習しましょう。";
+  document.getElementById("comment").textContent = comment;
+}
+
+function restart() {
+  if (currentMode) startQuiz(currentMode);
+}
+
+backToChapter();
+</script>
+</body>
+</html>
